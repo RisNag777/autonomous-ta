@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 from openai import OpenAI
 
-from autonomous_ta.vector_db import VectorDB
+from src.autonomous_ta.vector_db import VectorDB
 
 import os
 
@@ -16,15 +16,22 @@ class TextbookAgent:
         self.db = VectorDB()
         self.db.build_index()
 
+    def extract_chapter_keywords(self, question):
+        keywords = [word.lower() for word in question.split() if len(word) > 4]
+        return keywords
+
     def answer_question(self, question, top_k=5, model="gpt-4o-mini"):
-        results = self.db.query(question, top_k=top_k)
+        chapter_keywords = self.extract_chapter_keywords(question)
+        results = self.db.query(
+            question, top_k=top_k, chapter_keywords=chapter_keywords
+        )
         context = ""
         for result in results:
             context += f"[Chapter: {result['chapter']}, "
-            +f"Page: {result['page']}]\n{result['chunk_text']}\n\n"
+            context += f"Page: {result['page']}]\n{result['chunk_text']}\n\n"
         prompt = f"""
         You are a helpful teaching assistant. Use the following textbook content to answer the question below.
-        If the answer is not contained in the text, say "I cannot answer that from the textbook."
+        Answer only based on the textbook content, but do your best even if the answer is not explicitly stated.
 
         Textbook content:
         {context}
@@ -38,4 +45,10 @@ class TextbookAgent:
             temperature=0,
         )
         answer = completion.choices[0].message.content
+        print("=== ANSWER ===")
+        print(answer)
+        print("\n=== CHUNKS RETRIEVED ===")
+        for result in results:
+            print(f"{result['chapter']} (Page {result['page']}): ")
+            print(f"{result['chunk_text'][:200]}...\n")
         return answer, results
