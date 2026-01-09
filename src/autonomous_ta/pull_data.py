@@ -27,22 +27,43 @@ def get_toc(doc):
     return chapters
 
 
-def chunk_text(pages, max_tokens=300):
+def chunk_text(pages, toc, max_tokens=300):
     chunks = []
-    current = " "
+    current_chunk = " "
+    current_chapter = "Unknown"
+    chapter_index = 0
     for page in pages:
+        while (
+            chapter_index + 1 < len(toc)
+            and page["page_num"] >= toc[chapter_index + 1]["page_num"]
+        ):
+            chapter_index += 1
+        current_chapter = toc[chapter_index]["title"]
+
         paragraphs = page["text"].split("\n\n")
         for para in paragraphs:
             para = para.strip()
             if len(para) == 0:
                 continue
-            if len(current) + len(para) < max_tokens * 4:
-                current += " " + para
+            if len(current_chunk) + len(para) < max_tokens * 4:
+                current_chunk += " " + para
             else:
-                chunks.append(current.strip())
-                current = para
-    if current:
-        chunks.append(current.strip())
+                chunks.append(
+                    {
+                        "chapter_title": current_chapter,
+                        "page_num": page["page_num"],
+                        "chunk_text": current_chunk.strip(),
+                    }
+                )
+                current_chunk = para
+    if current_chunk:
+        chunks.append(
+            {
+                "chapter_title": current_chapter,
+                "page_num": page["page_num"],
+                "chunk_text": current_chunk.strip(),
+            }
+        )
     return chunks
 
 
@@ -56,7 +77,7 @@ def parse_book(book_pdf_path):
         print(f"{c['title']} (page {c['page_num']})")
 
     print("Chunking pages...")
-    chunks = chunk_text(pages)
+    chunks = chunk_text(pages, toc)
 
     output_file = DATA_DIR / "intro_stats_chunks.json"
     with open(output_file, "w", encoding="utf-8") as f:
