@@ -2,9 +2,10 @@ from pathlib import Path
 
 import fitz
 import json
+import os
 
 
-DATA_DIR = Path("data/raw/openstax_statistics")
+DATA_DIR = Path("data/raw/")
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -67,20 +68,22 @@ def chunk_text(pages, toc, max_tokens=300):
     return chunks
 
 
-def parse_book(book_pdf_path):
-    print(f"Loading PDF from {book_pdf_path}")
-    pages, doc = load_pdf(book_pdf_path)
-    toc = get_toc(doc)
+def parse_book():
+    for file in os.listdir(DATA_DIR):
+        if file.split(".")[-1] == "pdf":
+            print(f"Loading PDF from {file}")
+            pages, doc = load_pdf(DATA_DIR / file)
+            toc = get_toc(doc)
 
-    print("Extracted Table of Contents:")
-    for c in toc:
-        print(f"{c['title']} (page {c['page_num']})")
+            print("Extracted Table of Contents:")
+            for c in toc:
+                print(f"----{c['title']} (page {c['page_num']})")
 
-    print("Chunking pages...")
-    chunks = chunk_text(pages, toc)
+            print("Chunking pages...")
+            chunks = chunk_text(pages, toc)
 
-    output_file = DATA_DIR / "intro_stats_chunks.json"
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(chunks, f, ensure_ascii=False, indent=2)
+            output_file = DATA_DIR / f"{file}.json"
+            with open(output_file, "w", encoding="utf-8") as f:
+                json.dump(chunks, f, ensure_ascii=False, indent=2)
 
-    print(f"Saved {len(chunks)} chunks to {output_file}")
+            print(f"Saved {len(chunks)} chunks to {output_file}")
