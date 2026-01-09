@@ -1,25 +1,34 @@
+import os
 import requests
 
 from bs4 import BeautifulSoup
+from dotenv import load_dotenv
+from openai import OpenAI
 from pathlib import Path
 
 base_url_dict = {"openstax": "https://openstax.org"}
 
 
-def get_table_of_contents(base, book):
-    toc_url = base + "/books/" + book + "/pages"
-    response = requests.get(toc_url)
-    response.raise_for_status()
-    soup = BeautifulSoup(response.text, "html.parser")
-    toc_links = []
+def get_openai_client():
+    load_dotenv()
+    api_key=os.getenv("OPENAI_API_KEY")
+    return OpenAI(api_key=api_key)
 
-    for a in soup.find_all("a", href=True):
-        href = a["href"]
-        if href.startswith(f"/books/{book}/pages/"):
-            slug = href.split("/pages/")[1]
-            if slug not in toc_links:
-                toc_links.append(slug)
-    return toc_links
+
+def get_table_of_contents(base, book):
+    toc_url = base + "/books/" + book + "/pages/preface"
+    client = get_openai_client()
+    prompt = """
+    You are Indexy, a bot that takes a link to a book, goes to the website
+    and returns the table of contents of the book as a list.
+    """
+    messages = [{"role": "system", "content": prompt}]
+    completion = client.chat.completions.create(
+        model="gpt-4o-mini", messages=messages, temperature=0
+    )
+    ai_response_content = completion.choices[0].message.content
+    messages.append({"role": "assistant", "content": ai_response_content})
+    print(ai_response_content)
 
 
 def download_book(base, book):
