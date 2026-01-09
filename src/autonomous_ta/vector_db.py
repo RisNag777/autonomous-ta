@@ -8,7 +8,6 @@ import os
 
 
 DATA_DIR = Path("data/raw/")
-# EMBEDDINGS_FILE = DATA_DIR / "intro_stats_faiss.index"
 
 
 class VectorDB:
@@ -46,18 +45,41 @@ class VectorDB:
                 self.index.add(embeddings)
                 print(f"Index for {file} built with {len(self.texts)} chunks")
 
-    def query(self, question, top_k=5):
-        # Embed the query
+    def query(self, question, top_k=5, chapter_keywords=None):
+        filtered_indices = list(range(len(self.texts)))
+        if chapter_keywords:
+            chapter_keywords_lower = [  # fmt: off
+                keyword.lower() for keyword in chapter_keywords
+            ]
+            filtered_indices = [
+                pos
+                for pos, meta in enumerate(self.metadata)
+                if any(
+                    keyword in meta["chapter"].lower()
+                    for keyword in chapter_keywords_lower
+                )
+            ]
+            if not filtered_indices:
+                filtered_indices = list(range(len(self.texts)))
+        filtered_embeddings = np.array(
+            [self.model.encode(self.texts[pos]) for pos in filtered_indices]
+        ).astype("float32")
+
         q_vec = self.model.encode([question]).astype("float32")
-        distances, indices = self.index.search(q_vec, top_k)
+        index = faiss.IndexFlatL2(filtered_embeddings.shape[1])
+        index.add(filtered_embeddings)
+        distances, indices = index.search(  # fmt: off
+            q_vec, min(top_k, len(filtered_indices))
+        )
 
         results = []
         for dist, idx in zip(distances[0], indices[0]):
+            real_idx = filtered_indices[idx]
             results.append(
                 {
-                    "chunk_text": self.texts[idx],
-                    "chapter": self.metadata[idx]["chapter"],
-                    "page": self.metadata[idx]["page"],
+                    "chunk_text": self.texts[real_idx],
+                    "chapter": self.metadata[real_idx]["chapter"],
+                    "page": self.metadata[real_idx]["page"],
                     "distance": float(dist),
                 }
             )
