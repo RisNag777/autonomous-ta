@@ -1,53 +1,65 @@
-import os
-import requests
-
-from bs4 import BeautifulSoup
-from dotenv import load_dotenv
-from openai import OpenAI
 from pathlib import Path
 
-base_url_dict = {"openstax": "https://openstax.org"}
+import fitz
+import json
 
 
-def get_openai_client():
-    load_dotenv()
-    api_key=os.getenv("OPENAI_API_KEY")
-    return OpenAI(api_key=api_key)
+DATA_DIR = Path("data/raw/openstax_statistics")
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 
-def get_table_of_contents(base, book):
-    toc_url = base + "/books/" + book + "/pages/preface"
-    client = get_openai_client()
-    prompt = """
-    You are Indexy, a bot that takes a link to a book, goes to the website
-    and returns the table of contents of the book as a list.
-    """
-    messages = [{"role": "system", "content": prompt}]
-    completion = client.chat.completions.create(
-        model="gpt-4o-mini", messages=messages, temperature=0
-    )
-    ai_response_content = completion.choices[0].message.content
-    messages.append({"role": "assistant", "content": ai_response_content})
-    print(ai_response_content)
+def load_pdf(pdf_path):
+    doc = fitz.open(pdf_path)
+    pages_text = []
+    for page_num, page in enumerate(doc, start=1):
+        text = page.get_text().strip()
+        if text:
+            pages_text.append({"page_num": page_num, "text": text})
+    return pages_text, doc
 
 
-def download_book(base, book):
-    output_dir = Path("data/raw/openstax_statistics")
-    output_dir.mkdir(parents=True, exist_ok=True)
+def get_toc(doc):
+    toc = doc.get_toc()
+    chapters = []
+    for entry in toc:
+        level, title, page_num = entry
+        chapters.append({"level": level, "title": title, "page_num": page_num})
+    return chapters
 
-    base_url = base_url_dict[base.lower()]
-    book = book.lower().replace(" ", "-")
-    toc_links = get_table_of_contents(base_url, book)
 
-    for toc in toc_links:
-        url = f"{base_url}/books/{book}/pages/{toc}"
-        out_file = output_dir / f"{toc}.html"
-        print(f"Downloading {url} → {out_file}")
-        r = requests.get(url)
-        if r.status_code == 200:
-            out_file.write_text(r.text, encoding="utf-8")
-        else:
-            print(f"Failed: {r.status_code}")
+def chunk_text(pages, max_tokens=300):
+    chunks = []
+    current = " "
+    for page in pages:
+        paragraphs = page["text"].split("\n\n")
+        for para in paragraphs:
+            para = para.strip()
+            if len(para) == 0:
+                continue
+            if len(current) + len(para) < max_tokens * 4:
+                current += " " + para
+            else:
+                chunks.append(current.strip())
+                current = para
+    if current:
+        chunks.append(current.strip())
+    return chunks
 
-    print(f"Downloaded {len(toc_links)} pages")
-    
+
+def parse_book(book_pdf_path):
+    print(f"Loading PDF from {book_pdf_path}")
+    pages, doc = load_pdf(book_pdf_path)
+    toc = get_toc(doc)
+
+    print("Extracted Table of Contents:")
+    for c in toc:
+        print(f"{c['title']} (page {c['page_num']})")
+
+    print("Chunking pages...")
+    chunks = chunk_text(pages)
+
+    output_file = DATA_DIR / "intro_stats_chunks.json"
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(chunks, f, ensure_ascii=False, indent=2)
+
+    print(f"Saved {len(chunks)} chunks to {output_file}")
