@@ -84,3 +84,6 @@ class VectorDB:
                 }
             )
         return results
+
+    def list_chapters(self):
+        return sorted(set(meta["chapter"] for meta in self.metadata))
