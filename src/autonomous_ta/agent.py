@@ -12,10 +12,9 @@ client = OpenAI(api_key=api_key)
 
 
 class TextbookAgent:
-    def __init__(self, max_steps=3, model="gpt-4o-mini"):
+    def __init__(self, model="gpt-4o-mini"):
         self.db = VectorDB()
         self.db.build_index()
-        self.max_steps = max_steps
         self.model = model
 
     def choose_chapters(self, question, available_chapters):
@@ -110,30 +109,26 @@ class TextbookAgent:
         consulted_chapters = set()
         all_chunks = []
 
-        try:
-            for step in range(self.max_steps):
-                print(f"\nStep {step + 1}")
-                chapters, consulted_chapters = self.find_chapters(
-                    question, available_chapters, consulted_chapters
-                )
-                if not chapters:
-                    break
-                results = self.db.query(
-                    question, top_k=top_k, chapter_keywords=chapters
-                )
-                all_chunks.extend(results)
-                answer = self.synthesize_answer(question, all_chunks)
-                verdict = self.evaluate_answer(question, answer)
-                print(f"Self-evaluation: {verdict}")
-                if verdict == "YES":
-                    print("=== ANSWER ===")
-                    print(answer)
-                    print("\n=== CHUNKS RETRIEVED ===")
-                    for result in results:
-                        print(f"{result['chapter']} (Page {result['page']}): ")
-                        print(f"{result['chunk_text'][:100]}...\n")
-                    return answer, all_chunks
+        chapters, consulted_chapters = self.find_chapters(
+            question, available_chapters, consulted_chapters
+        )
+        if not chapters:
+            print(f"Unable to find content related to '{question}'")
+            return "", ""
+        results = self.db.query(
+            question, top_k=top_k, chapter_keywords=chapters
+        )
+        all_chunks.extend(results)
+        answer = self.synthesize_answer(question, all_chunks)
+        verdict = self.evaluate_answer(question, answer)
+        print(f"Self-evaluation: {verdict}")
+        if verdict == "YES":
+            print("=== ANSWER ===")
+            print(answer)
+            print("\n=== CHUNKS RETRIEVED ===")
+            for result in results:
+                print(f"{result['chapter']} (Page {result['page']}): ")
             return answer, all_chunks
-        except UnboundLocalError:
+        else:
             print(f"Unable to find content related to '{question}'")
             return "", ""
