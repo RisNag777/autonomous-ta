@@ -29,6 +29,7 @@ class VectorDB:
                     {  # fmt: off
                         "chapter": chunk["chapter_title"],
                         "page": chunk["page_num"],
+                        "book": file,
                     }
                     for chunk in chunks
                 ]
@@ -80,6 +81,7 @@ class VectorDB:
                     "chunk_text": self.texts[real_idx],
                     "chapter": self.metadata[real_idx]["chapter"],
                     "page": self.metadata[real_idx]["page"],
+                    "book": self.metadata[real_idx]["book"],
                     "distance": float(dist),
                 }
             )
