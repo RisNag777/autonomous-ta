@@ -40,7 +40,18 @@ class TextbookAgent:
             messages=[{"role": "user", "content": prompt}],
             temperature=0,
         )
-        return eval(response.choices[0].message.content)
+        import json
+        content = response.choices[0].message.content.strip()
+        # Try to parse as JSON first (safer than eval)
+        try:
+            return json.loads(content)
+        except json.JSONDecodeError:
+            # Fallback: if it's not valid JSON, try to extract JSON array from the response
+            import re
+            json_match = re.search(r'\[.*?\]', content, re.DOTALL)
+            if json_match:
+                return json.loads(json_match.group())
+            raise ValueError(f"Could not parse response as JSON: {content}")
 
     def synthesize_answer(self, question, chunks):
         context = ""

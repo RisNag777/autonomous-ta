@@ -67,17 +67,43 @@ autonomous-ta/
 │       ├── agent.py      # Main TextbookAgent class
 │       ├── load_data.py  # PDF parsing and chunking utilities
 │       └── vector_db.py  # Vector database implementation
-├── requirements.txt
+├── tests/                # Unit tests
+├── cli.py                # Command-line interface
+├── example.py            # Example usage script
+├── setup.py              # Package installation script
+├── requirements.txt      # Production dependencies
+├── requirements-dev.txt  # Development dependencies
+├── CONTRIBUTING.md       # Contribution guidelines
 └── README.md
 ```
 
 ## Usage
 
-### Step 1: Prepare Your Textbook
+### Command-Line Interface
+
+The easiest way to use the assistant is through the command-line interface:
+
+```bash
+python cli.py "What is regression and why is it useful?"
+```
+
+Options:
+- `--model`: Specify the OpenAI model (default: gpt-4o-mini)
+- `--top-k`: Number of chunks to retrieve (default: 5)
+- `--verbose`: Show detailed information about retrieved chunks
+
+Example:
+```bash
+python cli.py "Explain the central limit theorem" --model gpt-4o-mini --top-k 10 --verbose
+```
+
+### Python API
+
+#### Step 1: Prepare Your Textbook
 
 Place your PDF textbook in the `data/raw/` directory. The system will automatically process any PDF files found in this directory.
 
-### Step 2: Parse the Textbook
+#### Step 2: Parse the Textbook
 
 Run the data loading script to extract and chunk the textbook content:
 
@@ -93,7 +119,7 @@ This will:
 - Chunk the text into manageable segments
 - Save the processed data as a JSON file (e.g., `textbook.pdf.json`)
 
-### Step 3: Initialize the Agent
+#### Step 3: Initialize the Agent
 
 ```python
 from src.autonomous_ta.agent import TextbookAgent
@@ -106,7 +132,7 @@ The agent will automatically:
 - Build the vector index using sentence transformers
 - Prepare for querying
 
-### Step 4: Ask Questions
+#### Step 4: Ask Questions
 
 ```python
 question = "What is regression and why is it useful? What are the disadvantages of using regression?"
@@ -116,6 +142,16 @@ answer, chunks = agent.answer_question(question, top_k=5)
 The `answer_question` method returns:
 - `answer`: The synthesized answer string
 - `chunks`: List of retrieved text chunks with metadata (chapter, page, book)
+
+### Example Script
+
+Run the example script to see the assistant in action:
+
+```bash
+python example.py
+```
+
+This demonstrates the full workflow with multiple example questions.
 
 ### Example Output
 
@@ -262,9 +298,48 @@ In `load_data.py`, you can adjust:
 
 See LICENSE file for details.
 
-## Contributing
+## Development
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+### Running Tests
+
+Install development dependencies:
+```bash
+pip install -r requirements-dev.txt
+```
+
+Run tests:
+```bash
+pytest
+```
+
+Run tests with coverage:
+```bash
+pytest --cov=src tests/
+```
+
+### Code Formatting
+
+Format code with black:
+```bash
+black src/ tests/
+```
+
+Check code style with flake8:
+```bash
+flake8 src/ tests/
+```
+
+### Installing as a Package
+
+Install the package in development mode:
+```bash
+pip install -e .
+```
+
+After installation, you can use the CLI from anywhere:
+```bash
+autonomous-ta "Your question here"
+```
 
 ## Acknowledgments
 
