@@ -11,6 +11,8 @@ The Autonomous Teaching Assistant processes PDF textbooks, extracts their conten
 3. Synthesizing comprehensive answers from the retrieved content
 4. Self-evaluating the quality and completeness of answers
 
+**Key Design Philosophy**: The system treats the LLM as a reasoning layer operating over explicit knowledge (the textbook), rather than as a standalone knowledge source. This architectural shift enables more reliable, traceable, and grounded answers.
+
 ## Features
 
 - **PDF Processing**: Automatically extracts text, table of contents, and page information from PDF textbooks
@@ -279,20 +281,35 @@ In `load_data.py`, you can adjust:
 
 ## Limitations
 
-- Currently processes one textbook at a time (the first JSON file found)
-- Requires PDFs with a proper table of contents for chapter detection
-- Answers are limited to content available in the processed textbook
-- Requires an active internet connection for OpenAI API calls
+### Retrieval Quality
+- **TOC dependency**: Retrieval quality depends heavily on chunking and table of contents quality. If the TOC is poor or text extraction is messy, chunks can become fragmented or misaligned with chapters.
+- **Approximate vector search**: FAISS + sentence transformers work well in practice, but some subtle or cross-chapter questions may retrieve slightly off-target chunks.
+
+### System Constraints
+- **Single textbook**: Currently processes one textbook at a time (the first JSON file found)
+- **TOC requirement**: Requires PDFs with a proper table of contents for optimal chapter detection
+- **Content scope**: Answers are limited to content available in the processed textbook
+- **Internet connection**: Requires an active internet connection for OpenAI API calls
+
+### Performance Considerations
+- **Multiple LLM calls**: Each question triggers several API calls (chapter selection, synthesis, evaluation), making it slower and more expensive than a single-shot LLM call
+- **Prompt-based grounding**: Grounding is enforced via instructions, not hard constraints. Under adversarial prompts, the model can still occasionally hallucinate
 
 ## Future Improvements
 
-- Support for multiple textbooks simultaneously
-- Improved chapter detection for PDFs without table of contents
-- Caching mechanisms for repeated queries
-- Support for additional file formats (e.g., EPUB, DOCX)
-- Web interface for easier interaction
-- Batch question processing
-- Export answers to various formats
+### Architectural Enhancements
+- **Multi-textbook support**: Shared embedding space across multiple books with source-aware retrieval and conflict handling
+- **Iterative agent loop**: When evaluation returns `NO`, refine the question or chapter selection and try again
+- **Smarter retrieval**: Combine chapter filters with learned rerankers and hybrid search (sparse + dense) for better coverage
+
+### Reliability & UX
+- **Stronger grounding mechanisms**: Tooling that enforces retrieval-only answers more strictly than prompts alone
+- **Caching and indexing strategies**: Cache embeddings and index shards for faster startup
+- **Better TOC handling**: Fallback strategies when TOC is missing or malformed
+- **Support for additional file formats**: EPUB, DOCX, etc.
+- **Web interface**: Easier interaction for non-technical users
+- **Batch question processing**: Process multiple questions efficiently
+- **Export answers**: Various formats (PDF, Markdown, etc.)
 
 ## License
 
@@ -348,3 +365,7 @@ This project uses:
 - Sentence Transformers for semantic embeddings
 - FAISS for efficient vector search
 - PyMuPDF for PDF processing
+
+## Blog Post
+
+For a detailed walkthrough of the architecture, design decisions, and lessons learned, see the [blog post](blog_post.md).
